@@ -1,0 +1,16 @@
+export const sizing = {
+  screenMaxWidth: 520,
+  horizontalPadding: 20,
+  buttonHeight: 46,
+  buttonCompactHeight: 32,
+  inputHeight: 52,
+  tabBarHeight: 68,
+  iconSm: 16,
+  iconMd: 20,
+  iconLg: 24,
+  avatarSm: 32,
+  avatarMd: 40,
+  avatarLg: 68,
+  avatarXl: 104,
+  avatarSelector: 48,
+} as const;
