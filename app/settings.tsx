@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react';
-import { Redirect, useRouter, type Href } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Redirect, useFocusEffect, useRouter, type Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Avatar, ErrorState, LoadingSkeleton, Screen } from '@/components';
 import { useAuth, useMemberSession } from '@/hooks';
-import { getFamilyRoster } from '@/services';
+import { getFamilyRoster, getRestMode } from '@/services';
 import { getSoundEnabled, playSound, setSoundEnabled } from '@/services/sound';
 import { colors, normalizeAvatarKey, radius, spacing, typography } from '@/theme';
 
 const editProfileNameHref = '/edit-profile-name' as Href;
 const avatarSelectHref = '/avatar-select' as Href;
 const editFamilyNameHref = '/edit-family-name' as Href;
+const restModeHref = '/rest-mode' as Href;
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -22,15 +23,17 @@ export default function SettingsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [soundEnabled, setLocalSoundEnabled] = useState(true);
+  const [restActive, setRestActive] = useState(false);
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [roster, enabled] = await Promise.all([getFamilyRoster(), getSoundEnabled()]);
+      const [roster, enabled, restMode] = await Promise.all([getFamilyRoster(), getSoundEnabled(), getRestMode()]);
       setFamilyName(roster.familyName);
       setInviteCode(roster.inviteCode);
       setLocalSoundEnabled(enabled);
+      setRestActive(restMode.active);
     } catch {
       setError('No pudimos cargar los ajustes. Revisa tu conexión e inténtalo nuevamente.');
     } finally {
@@ -38,7 +41,7 @@ export default function SettingsScreen() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useFocusEffect(useCallback(() => { void load(); }, []));
 
   if (!session) return <Redirect href="/welcome" />;
   if (!activeMember) return <Redirect href="/member-select" />;
@@ -98,6 +101,7 @@ export default function SettingsScreen() {
         <SettingsRow icon="pencil" label="Editar mi nombre" onPress={() => router.push(editProfileNameHref)} />
         <SettingsRow icon="face-man-profile" label="Cambiar avatar" onPress={() => router.push(avatarSelectHref)} />
         <SettingsRow icon="home-edit-outline" label="Editar nombre de familia" onPress={() => router.push(editFamilyNameHref)} />
+        <SettingsRow icon="weather-sunset" label="Modo descanso" detail={restActive ? 'Activo' : undefined} onPress={() => router.push(restModeHref)} />
         <SettingsRow icon="account-switch-outline" label="Cambiar integrante" onPress={() => router.replace('/member-select')} />
         <SettingsToggleRow icon="volume-high" label="Sonidos de la app" value={soundEnabled} onValueChange={handleSoundChange} last />
       </View>
@@ -115,11 +119,12 @@ export default function SettingsScreen() {
   );
 }
 
-function SettingsRow({ icon, label, onPress, last = false }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; onPress: () => void; last?: boolean }) {
+function SettingsRow({ icon, label, detail, onPress, last = false }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; detail?: string; onPress: () => void; last?: boolean }) {
   return (
     <Pressable accessibilityRole="button" onPress={() => { void playSound('buttonPop'); onPress(); }} style={({ pressed }) => [styles.row, last && styles.lastRow, pressed && styles.pressed]}>
       <MaterialCommunityIcons name={icon} size={24} color={colors.text} />
       <Text style={styles.rowLabel}>{label}</Text>
+      {detail ? <Text style={styles.rowDetail}>{detail}</Text> : null}
       <MaterialCommunityIcons name="chevron-right" size={32} color={colors.textSecondary} />
     </Pressable>
   );
@@ -155,6 +160,7 @@ const styles = StyleSheet.create({
   row: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
   lastRow: { borderBottomWidth: 0 },
   rowLabel: { ...typography.title, color: colors.text, flex: 1 },
+  rowDetail: { ...typography.metadata, color: colors.primary },
   inviteCard: { marginTop: spacing.xl, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.lg },
   inviteLabel: { ...typography.label, color: colors.textSecondary, textTransform: 'uppercase' },
   inviteCode: { ...typography.display, color: colors.primary, letterSpacing: 3, marginTop: spacing.sm },

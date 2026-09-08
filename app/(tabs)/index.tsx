@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-import { Avatar, EmptyState, ErrorState, LoadingSkeleton, PointsFeedback, Screen, SectionHeader, TaskRow, WeeklyClosureModal, WeeklyProgressSummary } from '@/components';
+import { Avatar, Button, EmptyState, ErrorState, LoadingSkeleton, PointsFeedback, Screen, SectionHeader, TaskRow, WeeklyClosureModal, WeeklyProgressSummary } from '@/components';
 import { useMemberSession } from '@/hooks';
 import { completeTask, getHomeSummary, getPendingWeeklyClosure, markWeeklyClosureSeen, type HomeSummary, type WeeklyClosure } from '@/services';
 import { colors, normalizeAvatarKey, radius, spacing, typography } from '@/theme';
@@ -55,7 +55,11 @@ export default function HomeScreen() {
     try {
       const result = await completeTask(task.id);
       if (!result.ok) {
-        setActionError(result.code === 'TASK_ALREADY_DONE_TODAY' ? 'Esta tarea ya se hizo hoy. Mañana vuelve a estar disponible.' : 'El cupo de esta tarea acaba de agotarse.');
+        setActionError(result.code === 'MEMBER_RESTING'
+          ? 'Estás en modo descanso. Desactívalo para volver a completar tareas.'
+          : result.code === 'TASK_ALREADY_DONE_TODAY'
+            ? 'Esta tarea ya se hizo hoy. Mañana vuelve a estar disponible.'
+            : 'El cupo de esta tarea acaba de agotarse.');
         await load();
         return;
       }
@@ -118,13 +122,22 @@ export default function HomeScreen() {
         <View><Text style={styles.title}>Hola, {activeMember?.name ?? 'familia'}</Text><Text style={styles.motivation}>{summary.points > 0 ? `${summary.points} pts ganados esta semana` : 'Tu semana empieza aquí'}</Text></View>
         <Avatar initial={(activeMember?.name.charAt(0) ?? 'F').toUpperCase()} size="sm" tone={normalizeAvatarKey(activeMember?.avatarKey)} />
       </View>
-      <WeeklyProgressSummary points={summary.points} goal={summary.goal} daysLeft={summary.daysLeft} />
+      {!summary.isResting ? <WeeklyProgressSummary points={summary.points} goal={summary.goal} daysLeft={summary.daysLeft} /> : null}
 
-      <View style={styles.section}>
-        <SectionHeader title="Puedes hacer ahora" />
-        {actionError ? <Text accessibilityLiveRegion="polite" style={styles.actionError}>{actionError}</Text> : null}
-        {availableNow.length > 0 ? <View style={styles.list}>{availableNow.map((task, index) => <TaskRow key={task.id} task={task} entryIndex={index} completing={completingTaskId === task.id} onComplete={() => void handleComplete(task)} />)}</View> : <View style={styles.empty}><EmptyState title="No hay tareas disponibles ahora" message={summary.tasks.length === 0 ? 'Cuando creen la primera tarea, aparecerá aquí.' : 'Buen avance. Vuelve mañana o revisa Tareas para ver el estado completo.'} /></View>}
-      </View>
+      {summary.isResting ? (
+        <View style={styles.restCard}>
+          <View style={styles.restIcon}><Text style={styles.restEmoji}>🌤️</Text></View>
+          <Text style={styles.restTitle}>Estás en descanso</Text>
+          <Text style={styles.restBody}>Tus tareas están pausadas. Conservas tus {summary.points} pts y no se evaluará tu meta si sigues en descanso al cerrar la semana.</Text>
+          <Button compact variant="secondary" label="Administrar descanso" onPress={() => router.push('/rest-mode' as Href)} />
+        </View>
+      ) : (
+        <View style={styles.section}>
+          <SectionHeader title="Puedes hacer ahora" />
+          {actionError ? <Text accessibilityLiveRegion="polite" style={styles.actionError}>{actionError}</Text> : null}
+          {availableNow.length > 0 ? <View style={styles.list}>{availableNow.map((task, index) => <TaskRow key={task.id} task={task} entryIndex={index} completing={completingTaskId === task.id} onComplete={() => void handleComplete(task)} />)}</View> : <View style={styles.empty}><EmptyState title="No hay tareas disponibles ahora" message={summary.tasks.length === 0 ? 'Cuando creen la primera tarea, aparecerá aquí.' : 'Buen avance. Vuelve mañana o revisa Tareas para ver el estado completo.'} /></View>}
+        </View>
+      )}
       <PointsFeedback visible={completionFeedback !== null} points={completionFeedback?.points ?? 0} taskName={completionFeedback?.taskName ?? ''} celebrationMessage={completionFeedback?.celebrationMessage} onClose={() => setCompletionFeedback(null)} />
       <WeeklyClosureModal visible={weeklyClosure !== null} closure={weeklyClosure} onClose={() => void closeWeeklyClosure()} onViewHistory={() => void viewWeeklyHistory()} />
     </Screen>
@@ -143,4 +156,9 @@ const styles = StyleSheet.create({
   rounded: { borderRadius: 16 },
   skeletonGap: { marginTop: spacing.xs },
   actionError: { ...typography.caption, color: colors.danger, textAlign: 'center', marginBottom: spacing.xs },
+  restCard: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.md, backgroundColor: colors.surface },
+  restIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
+  restEmoji: { fontSize: 32 },
+  restTitle: { ...typography.title, color: colors.text, textAlign: 'center' },
+  restBody: { ...typography.body, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.xs },
 });

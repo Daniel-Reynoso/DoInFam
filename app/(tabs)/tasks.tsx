@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button, EmptyState, ErrorState, LoadingSkeleton, PointsFeedback, Screen, SegmentedControl, TaskRow } from '@/components';
-import { completeTask, listTasks, type TaskListItem } from '@/services';
+import { completeTask, getRestMode, listTasks, type TaskListItem } from '@/services';
 import { colors, radius, spacing, typography } from '@/theme';
 
 type Filter = 'available' | 'all' | 'inactive';
@@ -16,6 +16,7 @@ export default function TasksScreen() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [completionFeedback, setCompletionFeedback] = useState<{ points: number; taskName: string; celebrationMessage?: string } | null>(null);
+  const [isResting, setIsResting] = useState(false);
   const celebrationMessages = [
     '¡Meta cumplida! Tremenda semana 💪',
     '¡Lo lograste! Ya estás del otro lado 🎉',
@@ -26,7 +27,11 @@ export default function TasksScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try { setTasks(await listTasks()); }
+    try {
+      const [nextTasks, restMode] = await Promise.all([listTasks(), getRestMode()]);
+      setTasks(nextTasks);
+      setIsResting(restMode.active);
+    }
     catch { setError('No pudimos cargar las tareas. Revisa tu conexión e inténtalo nuevamente.'); }
     finally { setLoading(false); }
   }, []);
@@ -48,7 +53,11 @@ export default function TasksScreen() {
     try {
       const result = await completeTask(task.id);
       if (!result.ok) {
-        setActionError(result.code === 'TASK_ALREADY_DONE_TODAY' ? 'Esta tarea ya se hizo hoy. Mañana vuelve a estar disponible.' : 'El cupo de esta tarea acaba de agotarse.');
+        setActionError(result.code === 'MEMBER_RESTING'
+          ? 'Estás en modo descanso. Desactívalo para volver a completar tareas.'
+          : result.code === 'TASK_ALREADY_DONE_TODAY'
+            ? 'Esta tarea ya se hizo hoy. Mañana vuelve a estar disponible.'
+            : 'El cupo de esta tarea acaba de agotarse.');
         await load();
         return;
       }
@@ -71,13 +80,15 @@ export default function TasksScreen() {
 
   return (
     <Screen>
-      <View style={styles.header}><Text style={styles.title}>Tareas</Text><Button compact label="+ Nueva" onPress={() => openTask()} /></View>
-      <SegmentedControl value={filter} onChange={(value) => setFilter(value as Filter)} options={[{ label: 'Disponibles', value: 'available' }, { label: 'Todas', value: 'all' }, { label: 'Inactivas', value: 'inactive' }]} />
+      <View style={styles.header}><Text style={styles.title}>Tareas</Text>{!isResting ? <Button compact label="+ Nueva" onPress={() => openTask()} /> : null}</View>
+      {!isResting ? <SegmentedControl value={filter} onChange={(value) => setFilter(value as Filter)} options={[{ label: 'Disponibles', value: 'available' }, { label: 'Todas', value: 'all' }, { label: 'Inactivas', value: 'inactive' }]} /> : null}
       {actionError ? <Text accessibilityLiveRegion="polite" style={styles.actionError}>{actionError}</Text> : null}
       {loading && tasks.length === 0 ? (
         <View style={styles.loading}><LoadingSkeleton height={64} /><LoadingSkeleton height={64} /><LoadingSkeleton height={64} /></View>
       ) : error ? (
         <ErrorState message={error} onRetry={() => void load()} />
+      ) : isResting ? (
+        <View style={styles.empty}><EmptyState title="Tus tareas están en pausa 🌤️" message="Estás en modo descanso. Puedes volver a participar cuando quieras desde Ajustes." actionLabel="Administrar descanso" onAction={() => router.push('/rest-mode' as Href)} /></View>
       ) : visibleTasks.length > 0 ? (
         <View style={styles.list}>{visibleTasks.map((task, index) => <TaskRow key={task.id} task={task} entryIndex={index} showAction={task.isActive} completing={completingTaskId === task.id} onComplete={() => void handleComplete(task)} onPress={() => openTask(task)} />)}</View>
       ) : (

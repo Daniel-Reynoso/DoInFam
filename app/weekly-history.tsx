@@ -146,8 +146,8 @@ function GoalsCard({ week }: { week: WeeklyHistoryWeek }) {
         <View key={member.id} style={styles.goalRow}>
           <View style={[styles.goalDot, { backgroundColor: member.color }]} />
           <Text style={styles.goalName}>{member.name}</Text>
-          <Text style={styles.goalPoints}>{member.points}/{member.goal}</Text>
-          <MaterialCommunityIcons name={member.goalReached ? 'check-circle-outline' : 'close-circle-outline'} size={25} color={member.goalReached ? colors.success : colors.danger} />
+          <Text style={styles.goalPoints}>{member.isResting ? 'En descanso' : `${member.points}/${member.goal}`}</Text>
+          <MaterialCommunityIcons name={member.isResting ? 'weather-sunset' : member.goalReached ? 'check-circle-outline' : 'close-circle-outline'} size={25} color={member.isResting ? colors.primary : member.goalReached ? colors.success : colors.danger} />
         </View>
       ))}
     </View>

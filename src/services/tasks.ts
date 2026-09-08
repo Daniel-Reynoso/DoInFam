@@ -38,6 +38,11 @@ export type CompleteTaskResult =
       taskId: string;
       remainingQuota: number;
       periodEndsAt: string;
+    }
+  | {
+      ok: false;
+      code: 'MEMBER_RESTING';
+      taskId: string;
     };
 
 function isObject(value: unknown): value is JsonObject {
@@ -115,6 +120,14 @@ export async function completeTask(taskId: string): Promise<CompleteTaskResult> 
   const { data, error } = await supabase.rpc('complete_task', { p_task_id: taskId });
   if (error) throw error;
   if (!isObject(data)) throw new Error('Respuesta inválida al completar la tarea.');
+
+  if (data.ok === false && data.code === 'MEMBER_RESTING') {
+    return {
+      ok: false,
+      code: 'MEMBER_RESTING',
+      taskId: requiredString(data.task_id, 'task_id'),
+    };
+  }
 
   if (data.ok === false && (data.code === 'QUOTA_EXHAUSTED' || data.code === 'TASK_ALREADY_DONE_TODAY')) {
     return {

@@ -17,5 +17,6 @@ export type FamilyMember = {
   points: number;
   goal: number;
   note?: string;
+  isResting?: boolean;
   avatarTone?: AvatarKey;
 };

@@ -182,6 +182,39 @@ export type Database = {
           },
         ]
       }
+      member_rest_periods: {
+        Row: {
+          changed_by_user_id: string | null
+          created_at: string
+          duration: string
+          ended_at: string | null
+          family_id: string
+          id: string
+          member_id: string
+          started_at: string
+        }
+        Insert: {
+          changed_by_user_id?: string | null
+          created_at?: string
+          duration: string
+          ended_at?: string | null
+          family_id: string
+          id?: string
+          member_id: string
+          started_at?: string
+        }
+        Update: {
+          changed_by_user_id?: string | null
+          created_at?: string
+          duration?: string
+          ended_at?: string | null
+          family_id?: string
+          id?: string
+          member_id?: string
+          started_at?: string
+        }
+        Relationships: []
+      }
       task_completions: {
         Row: {
           completed_at: string
@@ -299,6 +332,7 @@ export type Database = {
           earned_points: number | null
           family_id: string | null
           goal_reached: boolean | null
+          is_resting: boolean | null
           member_id: string | null
           member_name: string | null
           target_points: number | null
@@ -335,6 +369,7 @@ export type Database = {
       clear_active_member: { Args: never; Returns: Json }
       complete_task: { Args: { p_task_id: string }; Returns: Json }
       delete_task_completion: { Args: { p_completion_id: string }; Returns: Json }
+      disable_rest_mode: { Args: never; Returns: Json }
       create_family: {
         Args: {
           p_avatar_key?: string
@@ -368,12 +403,14 @@ export type Database = {
       get_active_member: { Args: never; Returns: Json }
       get_home_summary: { Args: never; Returns: Json }
       get_pending_weekly_closure: { Args: never; Returns: Json }
+      get_rest_mode: { Args: never; Returns: Json }
       join_family_by_code: { Args: { p_invite_code: string }; Returns: Json }
       mark_weekly_closure_seen: { Args: { p_week_start: string }; Returns: Json }
       select_member: {
         Args: { p_member_id: string; p_pin: string }
         Returns: Json
       }
+      set_rest_mode: { Args: { p_duration: string }; Returns: Json }
       set_weekly_consequence: { Args: { p_consequence: string }; Returns: Json }
       set_weekly_goal: { Args: { p_target_points: number }; Returns: Json }
       update_family_settings: { Args: { p_name: string }; Returns: Json }

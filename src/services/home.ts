@@ -11,6 +11,9 @@ export type HomeSummary = {
   pointsRemaining: number;
   weekEndsAt: string;
   daysLeft: number;
+  isResting: boolean;
+  restDuration: 'this_week' | 'until_disabled' | null;
+  restEndsAt: string | null;
   tasks: Task[];
 };
 
@@ -71,6 +74,9 @@ export async function getHomeSummary(): Promise<HomeSummary> {
     pointsRemaining: requiredNumber(data.points_remaining, 'points_remaining'),
     weekEndsAt,
     daysLeft: calculateDaysLeft(weekEndsAt),
+    isResting: data.is_resting === true,
+    restDuration: data.rest_duration === 'this_week' || data.rest_duration === 'until_disabled' ? data.rest_duration : null,
+    restEndsAt: typeof data.rest_ends_at === 'string' ? data.rest_ends_at : null,
     tasks: data.tasks.map(taskFromJson),
   };
 }

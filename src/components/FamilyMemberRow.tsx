@@ -28,7 +28,7 @@ export function FamilyMemberRow({
   last = false,
   entryIndex = 0,
 }: Props) {
-  const reachedGoal = member.points >= member.goal;
+  const reachedGoal = !member.isResting && member.points >= member.goal;
   const isSelector = variant === 'selector';
   const reducedMotion = useReducedMotion();
   const entrance = useRef(new Animated.Value(reducedMotion ? 1 : 0)).current;
@@ -76,6 +76,7 @@ export function FamilyMemberRow({
           <Text style={[styles.name, isSelector && styles.selectorName]}>{member.name}</Text>
           {lastAccess ? <Text style={styles.note}>Último acceso</Text> : !isSelector && member.note ? <Text style={styles.note}>{member.note}</Text> : null}
         </View>
+        {!selectable && member.isResting ? <StatusLabel label="En descanso" tone="primary" /> : null}
         {!selectable && reachedGoal ? <StatusLabel label="Meta cumplida" tone="success" /> : null}
         {!selectable ? <View style={styles.score}><Text style={styles.points}>{member.points}</Text><Text style={styles.goal}>/{member.goal} pts</Text></View> : null}
         {selectable ? <MaterialCommunityIcons name="chevron-right" color={colors.textSecondary} size={isSelector ? 30 : 22} /> : null}

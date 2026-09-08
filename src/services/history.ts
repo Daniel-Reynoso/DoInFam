@@ -9,6 +9,7 @@ type WeeklyResultRow = {
   earned_points: number | null;
   target_points: number | null;
   goal_reached: boolean | null;
+  is_resting: boolean | null;
   consequence: string | null;
 };
 
@@ -30,6 +31,7 @@ export type WeeklyHistoryMember = {
   points: number;
   goal: number;
   goalReached: boolean;
+  isResting: boolean;
 };
 
 export type WeeklyHistoryActivity = {
@@ -67,7 +69,9 @@ function rangeLabel(weekStart: string) {
 }
 
 function goalLabel(members: WeeklyHistoryMember[]) {
-  const goals = [...new Set(members.map((member) => member.goal))];
+  const activeMembers = members.filter((member) => !member.isResting);
+  if (activeMembers.length === 0) return 'Semana en descanso';
+  const goals = [...new Set(activeMembers.map((member) => member.goal))];
   return goals.length === 1 ? `Meta: ${goals[0]} pts` : 'Metas personales';
 }
 
@@ -77,8 +81,10 @@ function buildActivities(
   completions: CompletionRow[],
 ) {
   const activities: WeeklyHistoryActivity[] = [];
-  const reached = members.filter((member) => member.goalReached).length;
-  const total = members.length;
+  const activeMembers = members.filter((member) => !member.isResting);
+  const reached = activeMembers.filter((member) => member.goalReached).length;
+  const total = activeMembers.length;
+  const resting = members.filter((member) => member.isResting);
 
   if (total > 0) {
     activities.push({
@@ -86,6 +92,17 @@ function buildActivities(
       memberId: null,
       color: colors.primary,
       text: `${reached} de ${total} alcanzaron su meta`,
+      dateLabel: rangeLabel(weekStart),
+    });
+  }
+
+  if (resting.length > 0) {
+    const names = resting.map((member) => member.name).join(' y ');
+    activities.push({
+      id: `${weekStart}-rest`,
+      memberId: resting.length === 1 ? resting[0].id : null,
+      color: colors.primary,
+      text: `${names} ${resting.length === 1 ? 'estuvo' : 'estuvieron'} en descanso`,
       dateLabel: rangeLabel(weekStart),
     });
   }
@@ -122,7 +139,7 @@ function buildActivities(
   }
 
   const strongestOverGoal = members
-    .filter((member) => member.goal > 0 && member.points > member.goal)
+    .filter((member) => !member.isResting && member.goal > 0 && member.points > member.goal)
     .sort((left, right) => (right.points - right.goal) - (left.points - left.goal))[0];
   if (strongestOverGoal) {
     activities.push({
@@ -141,7 +158,7 @@ export async function getWeeklyHistory(): Promise<WeeklyHistoryWeek[]> {
   const home = await getHomeSummary();
   const results = await supabase
     .from('weekly_member_results')
-    .select('week_start, member_id, member_name, earned_points, target_points, goal_reached, consequence')
+    .select('week_start, member_id, member_name, earned_points, target_points, goal_reached, consequence, is_resting')
     .lt('week_start', home.weekStart)
     .order('week_start', { ascending: false });
   if (results.error) throw results.error;
@@ -178,6 +195,7 @@ export async function getWeeklyHistory(): Promise<WeeklyHistoryWeek[]> {
         points,
         goal,
         goalReached: row.goal_reached === true,
+        isResting: row.is_resting === true,
       };
     }).sort((left, right) => right.points - left.points || left.name.localeCompare(right.name, 'es'));
     const weekCompletions = completionRows.filter((completion) => completion.week_start === weekStart);

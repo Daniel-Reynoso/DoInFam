@@ -42,7 +42,7 @@ export default function FamilyScreen() {
   return (
     <Screen>
       <Text style={styles.title}>Familia</Text>
-      <Text style={styles.success}>{progress.reachedCount} de {progress.members.length} alcanzaron su meta</Text>
+      <Text style={styles.success}>{progress.activeCount > 0 ? `${progress.reachedCount} de ${progress.activeCount} participantes alcanzaron su meta` : 'Todos están en descanso esta semana'}{progress.restingCount > 0 ? ` · ${progress.restingCount} en descanso` : ''}</Text>
       {progress.members.length > 0 ? (
         <View style={styles.list}>{progress.members.map((member, index) => <FamilyMemberRow key={member.id} member={member} rank={index + 1} last={index === progress.members.length - 1} />)}</View>
       ) : (

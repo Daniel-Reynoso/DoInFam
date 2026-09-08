@@ -9,3 +9,4 @@ export * from './settings';
 export * from './history';
 export * from './sound';
 export * from './weeklyClosure';
+export * from './restMode';
