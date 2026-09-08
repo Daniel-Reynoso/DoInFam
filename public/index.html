@@ -14,7 +14,7 @@
         height: 100%;
         overscroll-behavior: none;
         -webkit-text-size-adjust: 100%;
-        touch-action: manipulation;
+        touch-action: pan-x pan-y;
       }
 
       body {
@@ -44,5 +44,20 @@
   <body>
     <noscript>Necesitas activar JavaScript para usar DoInFam.</noscript>
     <div id="root"></div>
+    <script>
+      // iOS Safari ignores maximum-scale for pinch gestures in some versions.
+      // Keep one-finger scrolling, but cancel multi-touch zoom inside the app.
+      const preventGestureZoom = (event) => event.preventDefault();
+      document.addEventListener('gesturestart', preventGestureZoom, { passive: false });
+      document.addEventListener('gesturechange', preventGestureZoom, { passive: false });
+      document.addEventListener('gestureend', preventGestureZoom, { passive: false });
+      document.addEventListener(
+        'touchmove',
+        (event) => {
+          if (event.touches.length > 1) event.preventDefault();
+        },
+        { passive: false }
+      );
+    </script>
   </body>
 </html>
