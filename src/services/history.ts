@@ -60,32 +60,10 @@ function weekNumber(weekStart: string) {
 }
 
 const shortDateFormatter = new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', day: 'numeric', month: 'short' });
-const weekdayFormatter = new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', weekday: 'short', day: 'numeric', month: 'short' });
-
 function rangeLabel(weekStart: string) {
   const start = new Date(`${weekStart}T12:00:00Z`);
   const end = new Date(start.getTime() + 6 * 86_400_000);
   return `${shortDateFormatter.format(start)} - ${shortDateFormatter.format(end)}`;
-}
-
-function dateLabel(value: string) {
-  const label = weekdayFormatter.format(new Date(value));
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-function phraseIndex(seed: string, count: number) {
-  let total = 0;
-  for (let index = 0; index < seed.length; index += 1) total += seed.charCodeAt(index);
-  return total % count;
-}
-
-function completionText(completion: CompletionRow, memberName: string, taskName: string) {
-  const variants = [
-    `${memberName} completó ${taskName}`,
-    `${memberName} sumó +${completion.points_awarded} pts con ${taskName}`,
-    `${taskName} le dio +${completion.points_awarded} pts a ${memberName}`,
-  ];
-  return variants[phraseIndex(`${completion.id}-${completion.completed_at}`, variants.length)];
 }
 
 function goalLabel(members: WeeklyHistoryMember[]) {
@@ -97,7 +75,6 @@ function buildActivities(
   weekStart: string,
   members: WeeklyHistoryMember[],
   completions: CompletionRow[],
-  taskNames: Map<string, string>,
 ) {
   const activities: WeeklyHistoryActivity[] = [];
   const reached = members.filter((member) => member.goalReached).length;
@@ -119,45 +96,45 @@ function buildActivities(
       id: `${weekStart}-top-${topMember.id}`,
       memberId: topMember.id,
       color: topMember.color,
-      text: `${topMember.name} fue quien más puntos sumó esta semana`,
+      text: `${topMember.name} lideró la semana con ${topMember.points} pts`,
       dateLabel: rangeLabel(weekStart),
     });
   }
 
-  members.forEach((member) => {
-    if (member.goal <= 0) return;
-    if (member.points > member.goal) {
-      activities.push({
-        id: `${weekStart}-over-${member.id}`,
-        memberId: member.id,
-        color: member.color,
-        text: `${member.name} superó su meta por ${member.points - member.goal} pts`,
-        dateLabel: rangeLabel(weekStart),
-      });
-    } else if (!member.goalReached && member.goal - member.points <= 50) {
-      activities.push({
-        id: `${weekStart}-near-${member.id}`,
-        memberId: member.id,
-        color: member.color,
-        text: `${member.name} quedó a ${member.goal - member.points} pts de su meta`,
-        dateLabel: rangeLabel(weekStart),
-      });
-    }
-  });
-
-  completions.slice(0, 6).forEach((completion) => {
-    const member = members.find((candidate) => candidate.id === completion.member_id);
-    if (!member) return;
+  const completionCountByMember = completions.reduce((counts, completion) => {
+    counts.set(completion.member_id, (counts.get(completion.member_id) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+  const maxTaskCount = Math.max(0, ...completionCountByMember.values());
+  const taskLeaders = members.filter((member) => completionCountByMember.get(member.id) === maxTaskCount);
+  if (maxTaskCount > 0 && taskLeaders.length > 0) {
+    const leaderNames = taskLeaders.map((member) => member.name);
+    const label = leaderNames.length === 1
+      ? `${leaderNames[0]} completó más tareas: ${maxTaskCount}`
+      : `${leaderNames.join(' y ')} empataron con ${maxTaskCount} tareas`;
     activities.push({
-      id: completion.id,
-      memberId: member.id,
-      color: member.color,
-      text: completionText(completion, member.name, taskNames.get(completion.task_id) ?? 'una tarea'),
-      dateLabel: dateLabel(completion.completed_at),
+      id: `${weekStart}-tasks`,
+      memberId: taskLeaders.length === 1 ? taskLeaders[0].id : null,
+      color: taskLeaders.length === 1 ? taskLeaders[0].color : colors.primary,
+      text: label,
+      dateLabel: rangeLabel(weekStart),
     });
-  });
+  }
 
-  return activities.slice(0, 8);
+  const strongestOverGoal = members
+    .filter((member) => member.goal > 0 && member.points > member.goal)
+    .sort((left, right) => (right.points - right.goal) - (left.points - left.goal))[0];
+  if (strongestOverGoal) {
+    activities.push({
+      id: `${weekStart}-over-${strongestOverGoal.id}`,
+      memberId: strongestOverGoal.id,
+      color: strongestOverGoal.color,
+      text: `${strongestOverGoal.name} superó su meta por ${strongestOverGoal.points - strongestOverGoal.goal} pts`,
+      dateLabel: rangeLabel(weekStart),
+    });
+  }
+
+  return activities.slice(0, 4);
 }
 
 export async function getWeeklyHistory(): Promise<WeeklyHistoryWeek[]> {
@@ -184,14 +161,7 @@ export async function getWeeklyHistory(): Promise<WeeklyHistoryWeek[]> {
   if (completionsResult.error) throw completionsResult.error;
 
   const completionRows = completionsResult.data as CompletionRow[];
-  const taskIds = [...new Set(completionRows.map((completion) => completion.task_id))];
-  const tasksResult = taskIds.length > 0
-    ? await supabase.from('tasks').select('id, title').in('id', taskIds)
-    : { data: [], error: null };
-  if (tasksResult.error) throw tasksResult.error;
-
   const toneByMember = new Map(membersResult.data.map((member) => [member.id, normalizeAvatarKey(member.avatar_key)]));
-  const taskNames = new Map(tasksResult.data.map((task) => [task.id, task.title]));
 
   return weekStarts.map((weekStart) => {
     const weekRows = rows.filter((row) => row.week_start === weekStart);
@@ -221,7 +191,7 @@ export async function getWeeklyHistory(): Promise<WeeklyHistoryWeek[]> {
       reachedCount: members.filter((member) => member.goalReached).length,
       members,
       consequence: weekRows.find((row) => row.consequence)?.consequence ?? null,
-      activities: buildActivities(weekStart, members, weekCompletions, taskNames),
+      activities: buildActivities(weekStart, members, weekCompletions),
     };
   });
 }

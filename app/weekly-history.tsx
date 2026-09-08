@@ -90,7 +90,7 @@ export default function WeeklyHistoryScreen() {
           <SectionTitle>Metas semanales</SectionTitle>
           <GoalsCard week={selectedWeek} />
 
-          <SectionTitle>Actividad de la semana</SectionTitle>
+          <SectionTitle>Resumen de la semana</SectionTitle>
           <View style={styles.activityList}>
             {selectedWeek.activities.length > 0 ? selectedWeek.activities.map((activity) => (
               <View key={activity.id} style={styles.activityCard}>
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   goalName: { ...typography.subtitle, color: colors.text, flex: 1 },
   goalPoints: { ...typography.caption, color: colors.textSecondary },
   activityList: { gap: spacing.sm, paddingBottom: spacing.xl },
-  activityCard: { minHeight: 90, flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
+  activityCard: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
   activityAccent: { width: 5, alignSelf: 'stretch', borderRadius: radius.pill },
   activityContent: { flex: 1, gap: spacing.xs },
   activityText: { ...typography.subtitle, color: colors.text },

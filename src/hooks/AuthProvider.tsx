@@ -59,17 +59,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
-  const signUp = useCallback(
-    (email: string, password: string) => signUpFamilyAccount(email, password),
-    [],
-  );
+  const signUp = useCallback(async (email: string, password: string) => {
+    const result = await signUpFamilyAccount(email, password);
+    if (result.session) {
+      setSession(result.session);
+      setLoading(false);
+    }
+    return result;
+  }, []);
 
-  const signIn = useCallback(
-    (email: string, password: string) => signInFamilyAccount(email, password),
-    [],
-  );
+  const signIn = useCallback(async (email: string, password: string) => {
+    const nextSession = await signInFamilyAccount(email, password);
+    setSession(nextSession);
+    setLoading(false);
+    return nextSession;
+  }, []);
 
-  const signOut = useCallback(() => signOutFamilyAccount(), []);
+  const signOut = useCallback(async () => {
+    await signOutFamilyAccount();
+    setSession(null);
+    setLoading(false);
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({ session, user: session?.user ?? null, loading, signUp, signIn, signOut }),

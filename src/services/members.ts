@@ -50,18 +50,27 @@ function requiredString(value: unknown, field: string) {
 }
 
 export async function getFamilyRoster(): Promise<FamilyRoster> {
+  const accessResult = await supabase
+    .from('family_auth_accounts')
+    .select('family_id')
+    .maybeSingle();
+
+  if (accessResult.error) throw accessResult.error;
+  if (!accessResult.data) throw new Error('FAMILY_NOT_CONFIGURED');
+
+  const familyId = accessResult.data.family_id;
   const [familyResult, membersResult] = await Promise.all([
-    supabase.from('families').select('id, name, invite_code').maybeSingle(),
+    supabase.from('families').select('id, name, invite_code').eq('id', familyId).single(),
     supabase
       .from('family_members')
       .select('id, name, avatar_key')
+      .eq('family_id', familyId)
       .eq('is_active', true)
       .order('created_at', { ascending: true }),
   ]);
 
   if (familyResult.error) throw familyResult.error;
   if (membersResult.error) throw membersResult.error;
-  if (!familyResult.data) throw new Error('FAMILY_NOT_CONFIGURED');
 
   return {
     familyId: familyResult.data.id,
