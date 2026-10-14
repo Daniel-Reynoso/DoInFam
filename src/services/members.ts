@@ -11,6 +11,7 @@ export type FamilyRoster = {
   familyId: string;
   familyName: string;
   inviteCode: string;
+  isFamilyAdmin: boolean;
   members: FamilyMemberRecord[];
 };
 
@@ -52,7 +53,7 @@ function requiredString(value: unknown, field: string) {
 export async function getFamilyRoster(): Promise<FamilyRoster> {
   const accessResult = await supabase
     .from('family_auth_accounts')
-    .select('family_id')
+    .select('family_id, is_family_admin')
     .maybeSingle();
 
   if (accessResult.error) throw accessResult.error;
@@ -76,6 +77,7 @@ export async function getFamilyRoster(): Promise<FamilyRoster> {
     familyId: familyResult.data.id,
     familyName: familyResult.data.name,
     inviteCode: familyResult.data.invite_code,
+    isFamilyAdmin: accessResult.data.is_family_admin,
     members: membersResult.data ?? [],
   };
 }

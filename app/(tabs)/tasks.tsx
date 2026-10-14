@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, EmptyState, ErrorState, LoadingSkeleton, PointsFeedback, Screen, SegmentedControl, TaskRow } from '@/components';
-import { completeTask, getRestMode, listTasks, type TaskListItem } from '@/services';
+import { completeTask, getRestMode, listTasks, playSound, type TaskListItem } from '@/services';
 import { colors, radius, spacing, typography } from '@/theme';
 
 type Filter = 'available' | 'all' | 'inactive';
@@ -82,6 +83,13 @@ export default function TasksScreen() {
     <Screen>
       <View style={styles.header}><Text style={styles.title}>Tareas</Text>{!isResting ? <Button compact label="+ Nueva" onPress={() => openTask()} /> : null}</View>
       {!isResting ? <SegmentedControl value={filter} onChange={(value) => setFilter(value as Filter)} options={[{ label: 'Disponibles', value: 'available' }, { label: 'Todas', value: 'all' }, { label: 'Inactivas', value: 'inactive' }]} /> : null}
+      {!isResting ? (
+        <Pressable accessibilityRole="button" onPress={() => { void playSound('buttonPop'); router.push('/past-task' as Href); }} style={({ pressed }) => [styles.pastTaskAction, pressed && styles.pastTaskPressed]}>
+          <View style={styles.pastTaskIcon}><MaterialCommunityIcons name="history" size={22} color={colors.primary} /></View>
+          <View style={styles.pastTaskCopy}><Text style={styles.pastTaskTitle}>Registrar tarea pasada</Text><Text style={styles.pastTaskSubtitle}>¿Olvidaste marcar algo de esta semana?</Text></View>
+          <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />
+        </Pressable>
+      ) : null}
       {actionError ? <Text accessibilityLiveRegion="polite" style={styles.actionError}>{actionError}</Text> : null}
       {loading && tasks.length === 0 ? (
         <View style={styles.loading}><LoadingSkeleton height={64} /><LoadingSkeleton height={64} /><LoadingSkeleton height={64} /></View>
@@ -106,4 +114,10 @@ const styles = StyleSheet.create({
   loading: { marginTop: spacing.md, gap: 1 },
   empty: { marginTop: spacing.md, overflow: 'hidden', borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface },
   actionError: { ...typography.caption, color: colors.danger, textAlign: 'center', marginTop: spacing.sm },
+  pastTaskAction: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.divider, borderRadius: radius.md, backgroundColor: colors.surface },
+  pastTaskPressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
+  pastTaskIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
+  pastTaskCopy: { flex: 1 },
+  pastTaskTitle: { ...typography.bodyMedium, color: colors.text },
+  pastTaskSubtitle: { ...typography.caption, color: colors.textSecondary },
 });

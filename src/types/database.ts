@@ -48,16 +48,19 @@ export type Database = {
         Row: {
           created_at: string
           family_id: string
+          is_family_admin: boolean
           user_id: string
         }
         Insert: {
           created_at?: string
           family_id: string
+          is_family_admin?: boolean
           user_id: string
         }
         Update: {
           created_at?: string
           family_id?: string
+          is_family_admin?: boolean
           user_id?: string
         }
         Relationships: [
@@ -366,8 +369,20 @@ export type Database = {
         }
         Returns: Json
       }
+      authorize_member_pin_reset: {
+        Args: { p_member_id: string }
+        Returns: Json
+      }
       clear_active_member: { Args: never; Returns: Json }
       complete_task: { Args: { p_task_id: string }; Returns: Json }
+      complete_past_task: {
+        Args: { p_completion_date: string; p_task_id: string }
+        Returns: Json
+      }
+      complete_member_pin_reset: {
+        Args: { p_member_id: string; p_new_pin: string }
+        Returns: Json
+      }
       delete_task_completion: { Args: { p_completion_id: string }; Returns: Json }
       disable_rest_mode: { Args: never; Returns: Json }
       create_family: {
@@ -402,6 +417,15 @@ export type Database = {
       deactivate_task: { Args: { p_task_id: string }; Returns: Json }
       get_active_member: { Args: never; Returns: Json }
       get_home_summary: { Args: never; Returns: Json }
+      get_member_pin_reset_status: {
+        Args: { p_member_id: string }
+        Returns: Json
+      }
+      get_past_task_options: {
+        Args: { p_completion_date: string }
+        Returns: Json
+      }
+      get_pin_recovery_access: { Args: never; Returns: Json }
       get_pending_weekly_closure: { Args: never; Returns: Json }
       get_rest_mode: { Args: never; Returns: Json }
       join_family_by_code: { Args: { p_invite_code: string }; Returns: Json }

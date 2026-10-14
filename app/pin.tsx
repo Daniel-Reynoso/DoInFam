@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Avatar, PinInput, Screen } from '@/components';
 import { useAuth, useMemberSession, useReducedMotion } from '@/hooks';
-import { rememberMember } from '@/services';
+import { completeMemberPinReset, getMemberPinResetStatus, rememberMember } from '@/services';
 import { playSound } from '@/services/sound';
 import { colors, fontFamilies, normalizeAvatarKey, typography } from '@/theme';
 import type { FamilyMember } from '@/types';
@@ -20,6 +20,9 @@ export default function PinScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryAfter, setRetryAfter] = useState(0);
+  const [resetStatusLoading, setResetStatusLoading] = useState(true);
+  const [canCreatePin, setCanCreatePin] = useState(false);
+  const [firstPin, setFirstPin] = useState<string | null>(null);
   const reducedMotion = useReducedMotion();
   const entrance = useRef(new Animated.Value(reducedMotion ? 1 : 0)).current;
 
@@ -50,9 +53,60 @@ export default function PinScreen() {
   }, [error, retryAfter]);
 
   useEffect(() => {
+    if (!session || !memberId) return;
+    let mounted = true;
+    setResetStatusLoading(true);
+    getMemberPinResetStatus(memberId)
+      .then((status) => { if (mounted) setCanCreatePin(status.canCreatePin); })
+      .catch(() => { if (mounted) setCanCreatePin(false); })
+      .finally(() => { if (mounted) setResetStatusLoading(false); });
+    return () => { mounted = false; };
+  }, [memberId, session]);
+
+  useEffect(() => {
     if (pin.length !== 4 || submitting || retryAfter > 0) return;
 
     if (!session || !memberId) return;
+
+    if (canCreatePin) {
+      if (!firstPin) {
+        setFirstPin(pin);
+        setPin('');
+        setError(null);
+        return;
+      }
+
+      if (pin !== firstPin) {
+        setPin('');
+        setFirstPin(null);
+        void playSound('pinError');
+        setError('Los PIN no coinciden. Créalo nuevamente.');
+        return;
+      }
+
+      let mounted = true;
+      setSubmitting(true);
+      setError(null);
+      completeMemberPinReset(memberId, pin)
+        .then(async () => {
+          const result = await selectMember(memberId, pin);
+          if (!mounted) return;
+          if (!result.ok) throw new Error('PIN_RESET_LOGIN_FAILED');
+          if (familyId) await rememberMember(familyId, memberId);
+          if (mounted) router.replace('/(tabs)');
+        })
+        .catch((nextError) => {
+          if (!mounted) return;
+          setPin('');
+          setFirstPin(null);
+          void playSound('pinError');
+          setError(nextError instanceof Error && nextError.message.includes('PIN_RESET_AUTHORIZATION_REQUIRED')
+            ? 'La autorización venció. Pide al responsable que la active nuevamente.'
+            : 'No pudimos guardar tu PIN. Inténtalo nuevamente.');
+        })
+        .finally(() => { if (mounted) setSubmitting(false); });
+      return () => { mounted = false; };
+    }
 
     let mounted = true;
     setSubmitting(true);
@@ -89,7 +143,7 @@ export default function PinScreen() {
     return () => {
       mounted = false;
     };
-  }, [memberId, pin, retryAfter, router, selectMember, session]);
+  }, [canCreatePin, familyId, firstPin, memberId, pin, retryAfter, router, selectMember, session]);
 
   const handleKey = (key: (typeof keys)[number]) => {
     if (key === '' || submitting || retryAfter > 0) return;
@@ -117,12 +171,15 @@ export default function PinScreen() {
 
   if (!session || !memberId) return <Redirect href="/welcome" />;
 
+  if (resetStatusLoading) return <Screen scroll={false} contentStyle={styles.loadingScreen}><ActivityIndicator color={colors.primary} /></Screen>;
+
   return (
     <Screen scroll={false} contentStyle={styles.screen}>
       <Animated.View style={[styles.content, { opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>
         <Avatar initial={member.charAt(0)} size="lg" tone={normalizeAvatarKey(tone)} />
         <Text style={styles.title}>Hola, {member}</Text>
-        <Text style={styles.subtitle}>Introduce tu PIN</Text>
+        <Text style={styles.subtitle}>{canCreatePin ? (firstPin ? 'Repite tu nuevo PIN' : 'Crea tu nuevo PIN') : 'Introduce tu PIN'}</Text>
+        {canCreatePin ? <Text style={styles.privateNote}>Solo tú debes mirar esta pantalla.</Text> : null}
         <View style={styles.pin}>
           <PinInput showKeyboard={false} value={pin} onChangeText={setPin} />
           {submitting ? <ActivityIndicator style={styles.pinStatus} color={colors.primary} size="small" /> : null}
@@ -147,6 +204,15 @@ export default function PinScreen() {
         <Pressable accessibilityRole="button" disabled={submitting} onPress={() => void handleChangeMember()} hitSlop={12} style={({ pressed }) => pressed && styles.linkPressed}>
           <Text style={styles.link}>Cambiar integrante</Text>
         </Pressable>
+        {!canCreatePin ? <Pressable
+          accessibilityRole="button"
+          disabled={submitting}
+          onPress={() => { void playSound('buttonPop'); router.push(`/reset-member-pin?familyId=${encodeURIComponent(familyId ?? '')}&memberId=${encodeURIComponent(memberId)}&member=${encodeURIComponent(member)}&tone=${encodeURIComponent(tone)}&recovery=forgot` as Href); }}
+          hitSlop={12}
+          style={({ pressed }) => pressed && styles.linkPressed}
+        >
+          <Text style={styles.forgotLink}>¿Olvidaste tu PIN?</Text>
+        </Pressable> : null}
       </Animated.View>
     </Screen>
   );
@@ -157,6 +223,7 @@ const styles = StyleSheet.create({
   content: { alignItems: 'center', paddingTop: 106 },
   title: { ...typography.title, color: colors.text, fontSize: 23, lineHeight: 29, marginTop: 19 },
   subtitle: { ...typography.body, color: colors.textSecondary, fontSize: 15, lineHeight: 21, marginTop: 8 },
+  privateNote: { ...typography.caption, color: colors.primary, marginTop: 6 },
   pin: { width: 280, alignItems: 'center', marginTop: 30, marginBottom: 55, position: 'relative' },
   pinStatus: { position: 'absolute', top: 27, alignSelf: 'center' },
   pinError: { position: 'absolute', top: 25, width: 280, textAlign: 'center', ...typography.caption, color: colors.danger },
@@ -167,5 +234,7 @@ const styles = StyleSheet.create({
   keyDisabled: { opacity: 0.55 },
   keyText: { fontFamily: fontFamilies.semibold, fontSize: 25, lineHeight: 31, color: colors.text },
   link: { marginTop: 47, fontFamily: fontFamilies.semibold, fontSize: 14, lineHeight: 20, color: colors.primary, textDecorationLine: 'underline' },
+  forgotLink: { marginTop: 18, fontFamily: fontFamilies.medium, fontSize: 13, lineHeight: 19, color: colors.textSecondary },
   linkPressed: { opacity: 0.65 },
+  loadingScreen: { alignItems: 'center', justifyContent: 'center' },
 });

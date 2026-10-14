@@ -18,12 +18,14 @@ export function PointsFeedback({
   points,
   taskName,
   celebrationMessage,
+  title,
   onClose,
 }: {
   visible: boolean;
   points: number;
   taskName: string;
   celebrationMessage?: string;
+  title?: string;
   onClose: () => void;
 }) {
   const reducedMotion = useReducedMotion();
@@ -83,7 +85,7 @@ export function PointsFeedback({
         <Animated.View style={[styles.card, { opacity: progress, transform: [{ translateY }, { scale }] }]}>
           <View style={[styles.icon, isCelebration && styles.celebrationIcon]}><MaterialCommunityIcons name={isCelebration ? 'star' : 'check'} size={28} color={colors.surface} /></View>
           <Text style={styles.points}>+{points} pts</Text>
-          <Text style={styles.title}>{isCelebration ? '¡Meta cumplida!' : '¡Tarea completada!'}</Text>
+          <Text style={styles.title}>{isCelebration ? '¡Meta cumplida!' : (title ?? '¡Tarea completada!')}</Text>
           <Text style={styles.message}>{taskName}</Text>
           {celebrationMessage ? <Text style={styles.celebrationMessage}>{celebrationMessage}</Text> : null}
         </Animated.View>

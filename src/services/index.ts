@@ -10,3 +10,5 @@ export * from './history';
 export * from './sound';
 export * from './weeklyClosure';
 export * from './restMode';
+export * from './pinRecovery';
+export * from './pastTasks';

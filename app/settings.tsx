@@ -12,6 +12,7 @@ const editProfileNameHref = '/edit-profile-name' as Href;
 const avatarSelectHref = '/avatar-select' as Href;
 const editFamilyNameHref = '/edit-family-name' as Href;
 const restModeHref = '/rest-mode' as Href;
+const manageMemberPinsHref = '/manage-member-pins' as Href;
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function SettingsScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [soundEnabled, setLocalSoundEnabled] = useState(true);
   const [restActive, setRestActive] = useState(false);
+  const [isFamilyAdmin, setIsFamilyAdmin] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -32,6 +34,7 @@ export default function SettingsScreen() {
       const [roster, enabled, restMode] = await Promise.all([getFamilyRoster(), getSoundEnabled(), getRestMode()]);
       setFamilyName(roster.familyName);
       setInviteCode(roster.inviteCode);
+      setIsFamilyAdmin(roster.isFamilyAdmin);
       setLocalSoundEnabled(enabled);
       setRestActive(restMode.active);
     } catch {
@@ -101,6 +104,7 @@ export default function SettingsScreen() {
         <SettingsRow icon="pencil" label="Editar mi nombre" onPress={() => router.push(editProfileNameHref)} />
         <SettingsRow icon="face-man-profile" label="Cambiar avatar" onPress={() => router.push(avatarSelectHref)} />
         <SettingsRow icon="home-edit-outline" label="Editar nombre de familia" onPress={() => router.push(editFamilyNameHref)} />
+        {isFamilyAdmin ? <SettingsRow icon="lock-reset" label="Administrar PIN de integrantes" onPress={() => router.push(manageMemberPinsHref)} /> : null}
         <SettingsRow icon="weather-sunset" label="Modo descanso" detail={restActive ? 'Activo' : undefined} onPress={() => router.push(restModeHref)} />
         <SettingsRow icon="account-switch-outline" label="Cambiar integrante" onPress={() => router.replace('/member-select')} />
         <SettingsToggleRow icon="volume-high" label="Sonidos de la app" value={soundEnabled} onValueChange={handleSoundChange} last />
